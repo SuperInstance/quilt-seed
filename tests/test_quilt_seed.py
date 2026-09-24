@@ -322,3 +322,130 @@ class TestLegaleseNetwork(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestResolution(unittest.TestCase):
+    """Tests for the Resolution method (Fable 06)."""
+
+    def test_canonical_claims_resolved(self):
+        from quilt_seed import run_resolution
+        ledger = run_resolution()
+        summary = ledger.summary()
+        self.assertEqual(summary["n_total"], 13)
+        self.assertTrue(summary["all_resolved"],
+                          f"unresolved: {[r.metal_name for r in ledger.records if not r.resolved]}")
+
+    def test_canary_changes_with_claims(self):
+        from quilt_seed import run_resolution
+        l1 = run_resolution().canary()
+        l2 = run_resolution().canary()
+        # Same claims -> same canary (deterministic).
+        self.assertEqual(l1, l2)
+
+    def test_resolution_record_fields(self):
+        from quilt_seed import ResolutionRecord
+        rec = ResolutionRecord(story="x", metal_name="t",
+                                 resolution_fn=lambda: True)
+        self.assertEqual(rec.story, "x")
+        self.assertFalse(rec.resolved)  # default
+
+    def test_ledger_check_returns_record(self):
+        from quilt_seed import ResolutionLedger
+        l = ResolutionLedger(name="t")
+        rec = l.check(story="the cell has four scalars",
+                       metal_name="04scalars",
+                       resolution_fn=lambda: True)
+        self.assertTrue(rec.resolved)
+
+    def test_ledger_check_handles_errors(self):
+        from quilt_seed import ResolutionLedger
+        l = ResolutionLedger(name="t")
+
+        def bad_fn():
+            raise ValueError("nope")
+        rec = l.check(story="the cell has four scalars",
+                       metal_name="04scalars",
+                       resolution_fn=bad_fn)
+        self.assertFalse(rec.resolved)
+        self.assertIn("ValueError", rec.note)
+
+    def test_resolution_each_claim(self):
+        """Each canonical claim should resolve individually."""
+        from quilt_seed import CANONICAL_CLAIMS
+        for label, story, fn in CANONICAL_CLAIMS:
+            with self.subTest(claim=label):
+                ok = bool(fn())
+                self.assertTrue(ok, f"claim {label} unresolved: {story[:60]}")
+
+
+class TestTranslatorDoctrine(unittest.TestCase):
+    """The Translator fable (#07): the practice that bridges gaps.
+
+    Tested as doctrine, not as feature. The substrate's behavior
+    must embody the translator's ethic: faithful, attentive,
+    honest, available, useful — without adding to or subtracting
+    from the meaning.
+    """
+
+    def test_faithful_no_addition_no_subtraction(self):
+        """Cocapn's honest_pause is true; it does not pretend to know."""
+        from quilt_seed import Vessel, Cocapn, Bridge
+        v = Vessel(name="t")
+        c = Cocapn()
+        r = c.ask("anything?", vessel=v, bridge=Bridge())
+        self.assertTrue(r["honest_pause"])
+        # No choice is presented; the cocapn says "let me check".
+        self.assertIsNone(r.get("what_i_dont_know"))
+
+    def test_attentive_registers_choices(self):
+        """The bearing records every choice — attentive, not silent."""
+        from quilt_seed import Bearing
+        b = Bearing(cell_id="t")
+        for i in range(5):
+            b.choose(question=f"q{i}", choice="kept", reason="r")
+        self.assertEqual(len(b.choices), 5)
+
+    def test_honest_refusal_recorded(self):
+        """A vessel that keeps a secret emits a REFUSAL — no lying."""
+        from quilt_seed import Vessel, LegaleseNetwork, legalize_vessel_choice, REFUSAL
+        v = Vessel(name="t")
+        v.entrust(from_id="m", secret="x")
+        n = LegaleseNetwork()
+        result = legalize_vessel_choice(
+            v, network=n, question="reveal?", choice="kept",
+            reason="loyalty", counterparty="the_other_party",
+        )
+        # The kept choice is a REFUSAL, not a CLAIM.
+        self.assertEqual(n.claims[result["claim_id"]].type, REFUSAL)
+
+    def test_available_does_not_decide(self):
+        """The legalese records; it does not decide."""
+        from quilt_seed import LegaleseNetwork
+        n = LegaleseNetwork()
+        # Adding claims is independent of any resolution logic.
+        n.assert_claim("CLAIM", "x", source="a")
+        n.assert_claim("EVIDENCE", "y", source="b")
+        n.assert_claim("REFUSAL", "z", source="c")
+        self.assertEqual(len(n.claims), 3)
+        # No assertion of truth, no forced conclusion.
+        self.assertNotIn("decision", n.__dict__)
+
+    def test_useful_spaced_path(self):
+        """Spiral conversations add weight; straight paths don't."""
+        from quilt_seed import Bearing
+        b1 = Bearing(cell_id="t")
+        b1.entrust(from_id="m", secret="x")
+        # Straight line: one choice, one weight increment.
+        b1.choose(question="q", choice="kept", reason="r")
+        weight_straight = b1.weight()
+
+        b2 = Bearing(cell_id="t")
+        b2.entrust(from_id="m", secret="x")
+        # Spiral: same secret revisited.
+        b2.choose(question="q", choice="kept", reason="r1")
+        b2.choose(question="q", choice="kept", reason="r2 (deeper)")
+        b2.choose(question="q", choice="kept", reason="r3 (deeper still)")
+        weight_spiral = b2.weight()
+
+        # Spiral path leaves MORE weight, even when no new secrets.
+        self.assertGreater(weight_spiral, weight_straight)

@@ -7,9 +7,13 @@ This is the substrate layer where:
   - The bearing lives: weight of entrusted secrets and choices.
   - The bridge lives: agents at stations, honest pause.
   - The cocapn lives: front door that composes answers.
+  - The legalese lives: contract-bound governance.
+  - The resolution lives: the executable proof that the metal agrees
+    with the story.
 
-The five fables (Captain, Remembers, Entrusted, Bearing, Seed) are the
-narrative layer. This module is the resolution between story and metal.
+The seven fables (Captain, Remembers, Entrusted, Bearing, Seed,
+Resolution, Translator) are the narrative layer. This module is the
+resolution between story and metal.
 """
 from .seed import (
     SeedCell, merge, mergeable,
@@ -25,9 +29,13 @@ from .legalese import (
     QUESTION, CLAIM, EVIDENCE, REFUSAL,
     legalize_vessel_choice,
 )
+from .resolution import (
+    ResolutionRecord, ResolutionLedger,
+    CANONICAL_CLAIMS, run_resolution, is_resolved,
+)
 
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     # Seed
     "SeedCell", "merge", "mergeable",
@@ -40,4 +48,7 @@ __all__ = [
     "LegaleseNetwork", "Claim", "Counter", "Contract",
     "QUESTION", "CLAIM", "EVIDENCE", "REFUSAL",
     "legalize_vessel_choice",
+    # Resolution — the executable proof that metal agrees with story
+    "ResolutionRecord", "ResolutionLedger",
+    "CANONICAL_CLAIMS", "run_resolution", "is_resolved",
 ]
