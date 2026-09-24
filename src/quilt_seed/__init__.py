@@ -29,6 +29,10 @@ from .legalese import (
     QUESTION, CLAIM, EVIDENCE, REFUSAL,
     legalize_vessel_choice,
 )
+from .vibe import (
+    VibeSubstrate, cynicism_to_vibe, vibe_receipt, CellReceipt,
+    CYNCISM_DEADBAND,
+)
 from .resolution import (
     ResolutionRecord, ResolutionLedger,
     CANONICAL_CLAIMS, run_resolution, is_resolved,
